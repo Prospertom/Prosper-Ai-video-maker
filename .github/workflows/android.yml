@@ -1,0 +1,54 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Unpack Android project ZIP
+        run: |
+          if [ -f "Prosper_AI_Video_Maker_Android_Project.zip" ]; then
+            mkdir -p android-project
+            unzip -o Prosper_AI_Video_Maker_Android_Project.zip -d android-project
+          fi
+
+      - name: Find Android project
+        id: locate
+        run: |
+          wrapper=$(find . -type f -name gradlew -not -path './.git/*' | head -n 1)
+          if [ -z "$wrapper" ]; then
+            echo "No Gradle wrapper found in the project."
+            exit 1
+          fi
+          echo "project_dir=$(dirname "$wrapper")" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK
+        working-directory: ${{ steps.locate.outputs.project_dir }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: prosper-ai-video-maker-apk
+          path: '**/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
